@@ -37,23 +37,8 @@ class PayPal(S3PParserBase):
         # ========================================
         # Тут должен находится блок кода, отвечающий за парсинг конкретного источника
         # -
+        self._init_page(self.HOST, 2)
 
-        self._driver.get(self.HOST)  # Открыть первую страницу с материалами
-        time.sleep(5)
-
-        # Окно с куками пропадает самостоятельно через 2-3 секунды
-        try:
-            cookies_btn = self._driver.find_element(By.ID, 'acceptAllButton').find_element(By.XPATH,
-                                                                                           '//*[@id="acceptAllButton"]')
-            self._driver.execute_script('arguments[0].click()', cookies_btn)
-            self.logger.debug('Cookies убран')
-        except:
-            self.logger.exception('Не найден cookies')
-            pass
-
-        # self.logger.info('Прекращен поиск Cookies')
-        # time.sleep(3)
-        counter = 0
         flag = True
         while flag:
 
@@ -111,7 +96,7 @@ class PayPal(S3PParserBase):
 
                 self._driver.execute_script("window.open('');")
                 self._driver.switch_to.window(self._driver.window_handles[1])
-                self._driver.get(web_link)
+                self._init_page(web_link, 1)
                 self._wait.until(ec.presence_of_element_located((By.CSS_SELECTOR, '.wd_news_body')))
 
                 text_content = self._driver.find_element(By.CLASS_NAME, 'wd_news_body').text
@@ -164,3 +149,24 @@ class PayPal(S3PParserBase):
 
         # ---
         # ========================================
+
+    def _init_page(self, url: str, delay: int = 2):
+        self._driver.get(url)  # Открыть первую страницу с материалами
+        time.sleep(delay)
+        try:
+            self._agree_cookie_pass()
+        except:
+            ...
+
+    def _agree_cookie_pass(self):
+        """
+        Метод прожимает кнопку agree на модальном окне
+        """
+        cookie_agree_ID = 'acceptAllButton'
+        try:
+            cookie_button = self._driver.find_element(By.ID, cookie_agree_ID)
+            if WebDriverWait(self._driver, 2).until(ec.element_to_be_clickable(cookie_button)):
+                cookie_button.click()
+                self.logger.debug(F"Parser pass cookie modal on page: {self._driver.current_url}")
+        except NoSuchElementException as e:
+            self.logger.debug(f'modal agree not found on page: {self._driver.current_url}')
